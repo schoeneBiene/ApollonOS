@@ -149,12 +149,8 @@ function kernel.Start()
   local event = { n = 0 }
 
   while true do
-    local living = 0
-
     for i, program in ipairs(kernel.programs) do
       if program and (program.filter == nil or program.filter == event[1] or event[1] == "terminate") then
-        living = living + 1
-
         local ok, param = coroutine.resume(
           program.thread,
           table.unpack(event, 1, event.n)
@@ -172,10 +168,6 @@ function kernel.Start()
           kernel.programs[i] = false
         end
       end
-    end
-
-    if living == 0 then
-      break
     end
 
     event = table.pack(os.pullEventRaw())
