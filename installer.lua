@@ -5,6 +5,7 @@ local FILES = {
   "/bin/shell.lua",
   "/bin/sudo.lua",
   "/bin/tasklist.lua",
+  "/bin/updater.lua",
   "/bin/userctl.lua",
   "/bin/whoami.lua",
   "/boot/modules/craftos-apis.lua",
