@@ -34,15 +34,25 @@ function module.Load(kernel)
     if user ~= "root" then
       ---@param path string
       ---@return string
-      local function standardizePath(path) 
+      local function standardizePath(path)
         if not path:find("^/") then
-          path = "/"..path
+          path = "/" .. path
         end
 
-        path = path:gsub("/$", "")
+        local parts = {}
 
-        return path
-      end
+        for part in path:gmatch("[^/]+") do
+          if part == ".." then
+           if #parts > 0 then
+             table.remove(parts)
+            end
+          elseif part ~= "." and part ~= "" then
+            table.insert(parts, part)
+          end
+        end
+
+        return "/" .. table.concat(parts, "/")
+     end
 
       ---@param path string
       ---@return boolean
@@ -53,7 +63,7 @@ function module.Load(kernel)
       end
 
       local function mayRead(path)
-        return path ~= "/etc/passwd"
+        return not (path:find("^/etc/passwd"))
       end
 
       local origFsIsReadyOnly = fs.isReadOnly
@@ -103,7 +113,7 @@ function module.Load(kernel)
           error("Insufficient permissions")
         end
         
-        fs.delete(path)
+        origFsDelete(path)
       end
 
       local origFsOpen = fs.open
