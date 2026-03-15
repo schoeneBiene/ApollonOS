@@ -337,6 +337,27 @@ function kernel.GetUser(username)
   return users[username]
 end
 
+function kernel.AddGroupToUser(username, group)
+    local users, err = kernel.GetUsers()
+
+    if not users then
+      return false, err
+    end
+
+    if not users[username] then
+      return false, "User does not exist"
+    end
+
+    local user2 = users[username]
+
+    table.insert(user2.groups, group)
+
+    users[username] = user2
+
+    return kernel.WriteUsers(users)
+end
+
+
 function kernel.TryAuthenticate(username, password)
   local user = kernel.GetUser(username)
 
