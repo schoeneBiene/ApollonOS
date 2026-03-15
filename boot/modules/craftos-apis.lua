@@ -12,7 +12,18 @@ function module.Load(kernel)
     local env = orig(user, programId)
 
     for k, v in pairs(_G) do
-      env[k] = v
+      if type(v) == "table" then
+        local new = {}
+
+        for k2, v2 in pairs(v) do
+          new[k2] = v2
+        end
+
+        env[k] = new
+      else
+        env[k] = v
+      end
+
     end
 
     env.os.run = function (runEnv, path, ...)
