@@ -119,6 +119,9 @@ if shouldMoveFiles then
   moveFiles("/")
 end
 
+local commit_data = textutils.unserializeJSON(http.get("https://api.github.com/repos/schoeneBiene/ApollonOS/commits/master").readAll())
+local last_commit_sha = commit_data.sha
+
 print("Downloading files")
 
 for _,v in ipairs(FILES) do
@@ -149,4 +152,8 @@ print("Writing config")
 
 local file = fs.open("/etc/install.cfg", "w")
 file.write(textutils.serialize(config))
+file.close()
+
+file = fs.open("/etc/commit.current", "w")
+file.write(last_commit_sha)
 file.close()
