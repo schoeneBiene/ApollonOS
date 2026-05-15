@@ -6,9 +6,9 @@ end
 
 ---@param kernel Kernel
 function module.Load(kernel)
-  local orig = kernel.MakeEnv;
+  local orig = kernel.MakeEnv
 
-  kernel.MakeEnv = function (user, programId)
+  kernel.MakeEnv = function(user, programId)
     local env = orig(user, programId)
 
     for k, v in pairs(_G) do
@@ -23,11 +23,10 @@ function module.Load(kernel)
       else
         env[k] = v
       end
-
     end
 
-    env.os.run = function (runEnv, path, ...)
-      local pid = kernel.AddProgram(location, user, table.pack(...), runEnv)
+    env.os.run = function(runEnv, path, ...)
+      local pid = kernel.AddProgram(path, user, table.pack(...), runEnv)
 
       if not pid then
         return false
@@ -42,6 +41,16 @@ function module.Load(kernel)
       end
     end
 
+    local origOsQueueEvent = os.queueEvent
+
+    env.os.queueEvent = function(event, ...)
+      if event:find("^APOLLON_") then
+        error("Unauthorized access to kernel events")
+      end
+
+      origOsQueueEvent(event, ...)
+    end
+
     if user ~= "root" then
       ---@param path string
       ---@return string
@@ -54,8 +63,8 @@ function module.Load(kernel)
 
         for part in path:gmatch("[^/]+") do
           if part == ".." then
-           if #parts > 0 then
-             table.remove(parts)
+            if #parts > 0 then
+              table.remove(parts)
             end
           elseif part ~= "." and part ~= "" then
             table.insert(parts, part)
@@ -63,26 +72,26 @@ function module.Load(kernel)
         end
 
         return "/" .. table.concat(parts, "/")
-     end
+      end
 
       ---@param path string
       ---@return boolean
       local function isInHomeDir(path)
-        local res = path:find("^/home/"..user)
+        local res = path:find("^/home/" .. user)
 
         return res ~= nil
       end
 
       local function mayRead(path)
-        return not (path:find("^/etc/passwd"))
+        return not ((path:find("^/etc/passwd")) or not isInHomeDir(path))
       end
 
       local origFsIsReadyOnly = fs.isReadOnly
 
-      env.fs.isReadOnly = function (path)
+      env.fs.isReadOnly = function(path)
         path = standardizePath(path)
 
-        if isInHomeDir(path) then
+        if mayRead(path) then
           return origFsIsReadyOnly(path)
         end
 
@@ -91,10 +100,10 @@ function module.Load(kernel)
 
       local origFsMove = fs.move
 
-      env.fs.move = function (path, dest)
+      env.fs.move = function(path, dest)
         path = standardizePath(path)
         dest = standardizePath(dest)
-        
+
         if not isInHomeDir(path) or not isInHomeDir(dest) then
           error("Insufficient permissions")
         end
@@ -104,7 +113,7 @@ function module.Load(kernel)
 
       local origFsCopy = fs.copy
 
-      env.fs.copy = function (path, dest)
+      env.fs.copy = function(path, dest)
         path = standardizePath(path)
         dest = standardizePath(dest)
 
@@ -117,19 +126,19 @@ function module.Load(kernel)
 
       local origFsDelete = fs.delete
 
-      env.fs.delete = function (path)
+      env.fs.delete = function(path)
         path = standardizePath(path)
 
         if not isInHomeDir(path) then
           error("Insufficient permissions")
         end
-        
+
         origFsDelete(path)
       end
 
       local origFsOpen = fs.open
 
-      env.fs.open = function (path, mode)
+      env.fs.open = function(path, mode)
         path = standardizePath(path)
 
         if mode == "r" or mode == "rb" then
@@ -149,7 +158,7 @@ function module.Load(kernel)
 
       local origIoOpen = io.open
 
-      env.io.open = function (path, mode)
+      env.io.open = function(path, mode)
         path = standardizePath(path)
 
         if mode == "r" or mode == "rb" then
@@ -167,6 +176,9 @@ function module.Load(kernel)
         error("Insufficient permissions")
       end
     end
+
+    env.getfenv = nil
+    env.debug = nil
 
     return env
   end

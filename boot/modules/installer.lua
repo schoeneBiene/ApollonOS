@@ -16,7 +16,7 @@ function module.Load(kernel)
     local res, err = kernel.AddUser(config.username, config.password)
 
     if not res then
-      error("Failed to create user: "..tostring(err))
+      error("Failed to create user: " .. tostring(err))
     end
 
     if config.shouldWheel then
@@ -27,6 +27,7 @@ function module.Load(kernel)
     kernel.AddUser("root", config.rootPassword)
 
     fs.delete("/etc/install.cfg")
+
     os.reboot()
   end
 end

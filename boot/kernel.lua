@@ -7,7 +7,7 @@ local sha256 = require("/lib/sha256")
 local kernel = {
   programs = {},
   baseEnv = {},
-  kernelModules = {}
+  kernelModules = {},
 }
 
 local function createApi(user, programId)
@@ -16,7 +16,7 @@ local function createApi(user, programId)
   end
 
   return {
-    RunProgram = function (location, runAs, ...)
+    RunProgram = function(location, runAs, ...)
       if runAs and (not isPrivileged()) then
         return false, "ACCESS_DENIED"
       end
@@ -27,7 +27,7 @@ local function createApi(user, programId)
 
       return kernel.AddProgram(location, runAs, table.pack(...))
     end,
-    RunProgramMergeEnv = function (location, runAs, env, ...)
+    RunProgramMergeEnv = function(location, runAs, env, ...)
       if runAs and (not isPrivileged()) then
         return false, "ACCESS_DENIED"
       end
@@ -38,31 +38,31 @@ local function createApi(user, programId)
 
       return kernel.AddProgram(location, runAs, table.pack(...), env, "merge")
     end,
-    TryAuthenticate = function (username, password)
+    TryAuthenticate = function(username, password)
       return kernel.TryAuthenticate(username, password)
     end,
-    CreateUser = function (username, password)
+    CreateUser = function(username, password)
       if not isPrivileged() then
         return false, "ACCESS_DENIED"
       end
 
       return kernel.AddUser(username, password)
     end,
-    GetUser = function (username)
+    GetUser = function(username)
       if not isPrivileged() then
         return false, "ACCESS_DENIED"
       end
 
       return kernel.GetUser(username)
     end,
-    RemoveUser = function (username)
+    RemoveUser = function(username)
       if not isPrivileged() then
         return false, "ACCESS_DENIED"
       end
 
       return kernel.RemoveUser(username)
     end,
-    AddGroupToUser = function (username, group)
+    AddGroupToUser = function(username, group)
       if not isPrivileged() then
         return false, "ACCESS_DENIED"
       end
@@ -85,17 +85,17 @@ local function createApi(user, programId)
 
       return kernel.WriteUsers(users)
     end,
-    IsPrivileged = function ()
+    IsPrivileged = function()
       return isPrivileged()
     end,
-    GetKernelModule = function (identifier)
+    GetKernelModule = function(identifier)
       return kernel.kernelModules[identifier]
     end,
-    GetCurrentUser = function ()
+    GetCurrentUser = function()
       return user
     end,
-    GetHomeDir = function ()
-      local path = "/home/"..user
+    GetHomeDir = function()
+      local path = "/home/" .. user
 
       if not fs.exists(path) then
         fs.makeDir(path)
@@ -103,23 +103,23 @@ local function createApi(user, programId)
 
       return path
     end,
-    GetProcesses = function ()
+    GetProcesses = function()
       local processes = {}
 
-      for i,v in ipairs(kernel.programs) do
+      for i, v in ipairs(kernel.programs) do
         if v then
           local new = {
             location = v.location,
             user = v.user,
-            pid = i
+            pid = i,
           }
 
           table.insert(processes, new)
         end
       end
-      
+
       return processes
-    end
+    end,
   }
 end
 
@@ -136,7 +136,7 @@ function kernel.Start()
   ---@type string[]
   local modules = fs.list("/boot/modules")
 
-  for _,v in ipairs(modules) do
+  for _, v in ipairs(modules) do
     local module = dofile(fs.combine("/boot/modules", v))
     local identifier = module.GetIdentifier()
     local api = module.Load(kernel)
@@ -151,10 +151,7 @@ function kernel.Start()
   while true do
     for i, program in ipairs(kernel.programs) do
       if program and (program.filter == nil or program.filter == event[1] or event[1] == "terminate") then
-        local ok, param = coroutine.resume(
-          program.thread,
-          table.unpack(event, 1, event.n)
-        )
+        local ok, param = coroutine.resume(program.thread, table.unpack(event, 1, event.n))
 
         if ok then
           program.filter = param
@@ -177,13 +174,13 @@ end
 function kernel.MakeEnv(user, programId)
   local env = {}
 
-  for k,v in pairs(kernel.baseEnv) do
+  for k, v in pairs(kernel.baseEnv) do
     env[k] = v
   end
 
   env.require = require
 
-  return env;
+  return env
 end
 
 ---comment
@@ -195,7 +192,7 @@ end
 ---@return integer|false
 ---@return string?
 function kernel.AddProgram(location, user, args, envOverwrite, envMode)
-  if (not location) or (not user) then
+  if (not location) or not user then
     return false
   end
 
@@ -218,7 +215,7 @@ function kernel.AddProgram(location, user, args, envOverwrite, envMode)
     end
 
     if envOverwrite and envMode == "merge" then
-      for k,v in pairs(envOverwrite) do
+      for k, v in pairs(envOverwrite) do
         env[k] = v
       end
     end
@@ -228,12 +225,15 @@ function kernel.AddProgram(location, user, args, envOverwrite, envMode)
     env._G = nil
     env._G = env
 
-    setfenv(func, env)
+    local program_env = {}
+    setmetatable(program_env, { __index = env })
+
+    setfenv(func, program_env)
     table.insert(kernel.programs, {
       location = location,
       user = user,
-      thread = coroutine.create(function ()
-        local success, err = pcall(function ()
+      thread = coroutine.create(function()
+        local success, err = pcall(function()
           if args then
             func(table.unpack(args))
           else
@@ -242,7 +242,7 @@ function kernel.AddProgram(location, user, args, envOverwrite, envMode)
         end)
         os.queueEvent("APOLLON_PROCESS_EXIT", pid, success, err)
       end),
-      filter = nil
+      filter = nil,
     })
 
     return pid
@@ -267,10 +267,10 @@ function kernel.GetUsers()
   end
 
   file.close()
-  
+
   local users = textutils.unserialize(contents)
 
-  return users;
+  return users
 end
 
 function kernel.WriteUsers(data)
@@ -300,14 +300,14 @@ function kernel.AddUser(username, password)
   users[username] = {
     username = username,
     password = sha256.sha256(password),
-    groups = {}
+    groups = {},
   }
 
   return kernel.WriteUsers(users)
 end
 
 function kernel.RemoveUser(username)
-  local users, err = kernel.GetUsers();
+  local users, err = kernel.GetUsers()
 
   if not users then
     return false, err
@@ -324,7 +324,7 @@ function kernel.RemoveUser(username)
 end
 
 function kernel.GetUser(username)
-  local users, err = kernel.GetUsers();
+  local users, err = kernel.GetUsers()
 
   if not users then
     return nil, err
@@ -338,25 +338,24 @@ function kernel.GetUser(username)
 end
 
 function kernel.AddGroupToUser(username, group)
-    local users, err = kernel.GetUsers()
+  local users, err = kernel.GetUsers()
 
-    if not users then
-      return false, err
-    end
+  if not users then
+    return false, err
+  end
 
-    if not users[username] then
-      return false, "User does not exist"
-    end
+  if not users[username] then
+    return false, "User does not exist"
+  end
 
-    local user2 = users[username]
+  local user2 = users[username]
 
-    table.insert(user2.groups, group)
+  table.insert(user2.groups, group)
 
-    users[username] = user2
+  users[username] = user2
 
-    return kernel.WriteUsers(users)
+  return kernel.WriteUsers(users)
 end
-
 
 function kernel.TryAuthenticate(username, password)
   local user = kernel.GetUser(username)

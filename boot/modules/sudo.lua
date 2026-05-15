@@ -30,10 +30,12 @@ function module.Load(kernel)
   end
 
   return {
-    Execute = function (username, password, ...)
+    Execute = function(username, password, ...)
       local success = kernel.TryAuthenticate(username, password)
 
       if not success then
+        -- I swear this is for safety
+        os.sleep(1)
         return false
       end
 
@@ -44,11 +46,10 @@ function module.Load(kernel)
       return kernel.AddProgram("/bin/shell.lua", "root", table.pack(...))
     end,
 
-    UserCanUse = function (username)
+    UserCanUse = function(username)
       return UserCanUse(username)
-    end
+    end,
   }
 end
 
 return module
-
